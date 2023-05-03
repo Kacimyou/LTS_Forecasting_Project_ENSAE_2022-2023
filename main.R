@@ -219,96 +219,26 @@ apply(as.matrix(models),1, function(m) c("AIC"=AIC(get(m)), "BIC"=BIC(get(m))))
 
 
 
-##
-models <-  c("ar2","ma2",'ar1ma1',"ar2ma2")
-preds <- zoo(matrix(NA,ncol=3,nrow=4),order.by=tail(index(y.source),4))
-colnames(preds) <- models
-desaisonp <- preds #
-xmp <- preds #
+#Q6)
 
-##
+
+models <-  c("ar2","ma2",'ar1ma1',"ar2ma2")
+preds <- zoo(matrix(NA,ncol=4,nrow=4),order.by=tail(index(y.source),4))
+colnames(preds) <- models
+y_diff_pred <- preds #
+y_pred <- preds #
+
+
+
 for (m in models){
-  pred1 <- mean(desaison) + zoo(predict(get(m),4)$pred, order.by=tail(index(xm.source),4))
-  pred2 <- as.numeric(tail(xm,12))[1:4] + pred1
-  desaisonp[,m] <- pred1
-  xmp[,m] <- pred2
+  pred1 <- mean(y_diff) + zoo(predict(get(m),4)$pred, order.by=tail(index(y.source),4))
+  pred2 <- as.numeric(tail(y,12))[1:4] + pred1
+  y_diff_pred[,m] <- pred1
+  y_pred[,m] <- pred2
 }
 
-obs <- tail(xm.source,4) #
-cbind(obs,xmp) #
-apply(xmp,2, function(x) sqrt(sum((x-obs)^2)/4)/sd(xm.source)) #
+obs <- tail(y.source,4) #
+cbind(obs,y_pred) #
+apply(y_pred,2, function(x) sqrt(sum((x-obs)^2)/4)/sd(y.source)) #
 
 #
-
-#### Q8 ####
-datafile <- "Donnees2.csv" #definit le fichier de donnees
-
-data <- read.csv(datafile,sep=";") #importe un fichier .csv dans un objet de classe data.frame
-xm.source <- zoo(data[[1]]) #convertit le premier element de data en serie temporelle de type "zoo"
-T <- length(xm.source)
-xm <- xm.source[1:(T-4)] #supprime les 4 dernieres valeurs
-dev.off() #reinitialise les parametre de graphique
-plot(xm)
-### 
-
-trend <- 1:length(xm)
-lt <- lm(xm ~ trend) #
-summary(lt) #
-r <- lt$residuals #
-par(mfrow=c(1,2))
-plot(r)
-acf(r)
-### 
-
-pp.test(xm) 
-### 
-
-acf(r,24);pacf(r,24) 
-### 
-### 
-pmax=4; qmax=21
-
-### 
-
-
-
-## fonction pour estimer un arima et en verifier l'ajustement et la validite
-modelchoice <- function(p,q,data=r, k=24){
-  estim <- try(arima(data, c(p,0,q),optim.control=list(maxit=20000)))
-  if (class(estim)=="try-error") return(c("p"=p,"q"=q,"arsignif"=NA,"masignif"=NA,"resnocorr"=NA, "ok"=NA))
-  arsignif <- if (p==0) NA else signif(estim)[3,p]<=0.05
-  masignif <- if (q==0) NA else signif(estim)[3,p+q]<=0.05
-  resnocorr <- sum(Qtests(estim$residuals,24,length(estim$coef)-1)[,2]<=0.05,na.rm=T)==0
-  checks <- c(arsignif,masignif,resnocorr)
-  ok <- as.numeric(sum(checks,na.rm=T)==(3-sum(is.na(checks))))
-  return(c("p"=p,"q"=q,"arsignif"=arsignif,"masignif"=masignif,"resnocorr"=resnocorr,"ok"=ok))
-}
-
-## fonction pour estimer et verifier tous les arima(p,q) avec p<=pmax et q<=max
-armamodelchoice <- function(pmax,qmax){
-  pqs <- expand.grid(0:pmax,0:qmax)
-  t(apply(matrix(1:dim(pqs)[1]),1,function(row) {
-    p <- pqs[row,1]; q <- pqs[row,2]
-    cat(paste0("Computing ARMA(",p,",",q,") \n"))
-    modelchoice(p,q)
-  }))
-}
-
-armamodels <- armamodelchoice(pmax,qmax) #estime tous les arima (patienter...)
-
-
-selec <- armamodels[armamodels[,"ok"]==1&!is.na(armamodels[,"ok"]),] #modeles bien ajustes et valides
-selec
-### On a ? modeles bien ajustes et valides
-
-pqs <- apply(selec,1,function(row) list("p"=as.numeric(row[1]),"q"=as.numeric(row[2]))) #cree une liste des ordres p et q des modeles candidats
-names(pqs) <- paste0("arma(",selec[,1],",",selec[,2],")") #renomme les elements de la liste
-models <- lapply(pqs, function(pq) arima(r,c(pq[["p"]],0,pq[["q"]]))) #cree une liste des modeles candidats estimes
-vapply(models, FUN.VALUE=numeric(2), function(m) c("AIC"=AIC(m),"BIC"=BIC(m))) #calcule les AIC et BIC des modeles candidats
-### L'ARMA(?,?) minimise les criteres d'information.
-
-rps <- lapply(models, function(m) as.zoo(predict(m,4)$pred)) #previsions de r
-xmps <- lapply(rps, function(rp) rp+cbind(1,c((T-3):T))%*%lt$coefficients) #previsions de xm
-rmse <- vapply(xmps, FUN.VALUE=numeric(1), function(xmp) sqrt(sum((as.zoo(xmp)-tail(xm.source,4))^2))) #calcule les rmse out-of-sample
-rmse
-### L'ARMA(?,?) fait aussi la meilleure prevision
