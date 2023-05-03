@@ -34,71 +34,78 @@ y_num = as.numeric(y)
 y_diff = diff(y_num, differences = 1)#first difference
 y_diff = zoo(y_diff)
 
-y_second_diff = diff(y_diff, differences = 1)#second difference
-y_second_diff = zoo(y_second_diff)
-
-
+#Q2)
+ 
 ########################################
 ### Plot the data ###
 ########################################
 
-#plot(y, ylim=c(60,160))  
-
+ 
 plot(y, ylim =c(60,160))
+#The series in level seems to have a decreasing linear trend. 
+
 plot(y_diff)
-plot(y_second_diff)
 
-acf(y_num)
+#The first difference series seems relatively stable around a null constant and could be stationary. 
 
+#We guess that the series is probably I(1)
+
+
+########################################
+### Stationary ###
+########################################
+# Before modeling our series with ARMA model we need to check that it is stationary
+# If it is not, we need to correct it by differentiating it or deseasonalizing it.
+
+
+#Before performing the unit root tests to check stationarity, we need to check if there is an intercept and / or a non null linear trend.
+#The graph representation of spread showed that the trend is probably linear and decreasing.
+
+# Let’s regress y on its dates to check :
 summary(lm( formula = y ~ dates))
 
 
+#The coefficient associated with the linear trend (dates) is indeed negative, thus we
+#need to study the case of unit root tests with intercept and possibly non zero trends
+
+adf <- adfTest(y_num, lag=0, type="ct") # ct here take into account the fact that y has an intercept and non zero trend.
+#Before interpreting the test, let’s check that the model’s residuals are not autocorrelated, otherwise the test
+#would not be valid.
+
+Qtests(adf@test$lm$residuals,24,length(adf@test$lm$coefficients))
+
+#We reject the absence of residual autocorrelation for every lag, thus invalidating the ADF
+#test without lags. Let’s add lags of ∆Xt until the residuals are no longer autocorrelated.
+
+adf <- adfTest_valid(y_num,24, type="ct") # ct here take into account the fact that y has an intercept and non zero trend.
+#We have had to consider 21 lags on the ADF test to erase residual autocorrelation.
+
+adf
+#The unit root is not rejected at the 95% - level for the series in levels, the series is thus at least I(1).
 
 
+#Let’s now test the unit root for the first differenciated series. The previous graph representation seems to
+#show the absence of a constant and non zero trend. Let’s check with a regression :
 
 summary(lm( formula = y_diff ~ dates[-1]))
-adf <- adfTest_valid(y_diff,24, type="nc")
+
+#There isn’t any constant or significant trend. Let’s perform the ADF test in the no-constant and no-trend case,
+#and control for the absence of residual autocorrelation.
+
+adf <- adfTest_valid(y_diff,24, type="nc") # nc here take into account the fact that y has no intercept and zero trend.
+
+#It was necessary to include 1 lags in the ADF test
 adf
 
-
-########################################
-### ARMA modelisation ###
-########################################
-#Since our data is now stationary, we can try to model it with an ARMA(p,q) model.
-
-### Identification of p and q ###
-par(mfrow=c(1,1)) #puts the graphs into 1 column and 2 lines
-acf(y_diff)
-pacf(y_diff)
-
-#The ACF and PACF diagram suggests to choose p=2 and q=2 for the ARMA model. 
-
-### Nullity test of the ARMA coefficients ###
+#The test rejects the unit root hypothesis (p-value<0.05), we will thus say that the differenciated series is
+#”stationary”. y is therefore I(1) as guessed by the plot.
 
 
-arima(y_wo_trend,c(2,0,2)) # p= 2 q= 2 
-#The model is properly adjusted since the t statistics of each coefficient is superior to 1.96
+#Q3)
 
-arima202 <- arima(y_wo_trend,c(2,0,2)) 
+plot(y_diff)
 
-### Ljung Box test to check if residuals are not correlated ####
-Box.test(arima202$residuals, lag=5, type="Ljung-Box", fitdf=4) #
-#Ljung Box reject the absence of autocorrelation of residuals at order 8 because p_value = 0.015
-# The model is thus not valid.
-
-
-Qtests <- function(series, k, fitdf=0) {
-  pvals <- apply(matrix(1:k), 1, FUN=function(l) {
-    pval <- if (l<=fitdf) NA else Box.test(series, lag=l, type="Ljung-Box", fitdf=fitdf)$p.value
-    return(c("lag"=l,"pval"=pval))
-  })
-  return(t(pvals))
-}
-#We do LB test for two periodicity (24 tests since data are monthly)
-round(Qtests(arima202$residuals,24,fitdf=4),3) # fitdf = p+q
-# In this test, Ho: residuals are not correlated VS H1: residuals are correlated
-# Thus we would like to accept H0 in order to have a valid model
-
+### Useful function ###
 adfTest_valid <-
   function(series,kmax,type){ #ADF tests until no more autocorrelated residuals
     k <- 0
@@ -115,13 +122,42 @@ adfTest_valid <-
     return(adf)
   }
 
+Qtests <- function(series, k, fitdf=0) {
+  pvals <- apply(matrix(1:k), 1, FUN=function(l) {
+    pval <- if (l<=fitdf) NA else Box.test(series, lag=l, type="Ljung-Box", fitdf=fitdf)$p.value
+    return(c("lag"=l,"pval"=pval))
+  })
+  return(t(pvals))
+}
+
+#Q4)
 
 
+########################################
+### ARMA modelization ###
+########################################
+#Since our data is now stationary, we can try to model it with an ARMA(p,q) model.
+
+
+### Identification of p and q ###
+par(mfrow=c(1,2)) #puts the graphs into 1 column and 2 lines
+acf(y_diff)
+pacf(y_diff)
+
+#Since the series is stationary, it is integrated of order d = 0.
+#The complete autocorrelation functions are statistically significant (i.e. bigger than the bounds ±1, 96/√n of
+#the confidence interval of a null test of the autocorrelation at the 95% level) until q∗ = 2 and the partial
+#autocorrelation until p∗ = 2. If y follows an ARIMA(p,d,q), it follows at most an ARIMA(p∗ =0, d∗ = 0,q∗ = 2), which we can estimate.
 
 ### Model selection  ###
 
-# We know that our model is at most an ARMA(5,2) but given the test above this model is not
-# well adjusted and not valid. We want to find simpler model that are valid and well adjusted 
+# We know that our model is at most an ARIMA(2,0,2)
+#The potential models are all the ARIMA(p,0,q) for spread where p ≤ 2 and q ≤ 2.
+#We are looking for a model that is :
+# — well adjusted : the estimated coefficients (notably the coefficients of the higher AR and MA orders) are
+# statistically significant.
+# — valid : the residuals are not correlated.
+
 
 #Function that tests the significance of coefficients 
 #Allow us to test if the model is well adjusted 
@@ -133,10 +169,7 @@ signif <- function(estim){
   pval <- (1-pnorm(abs(t)))*2
   return(rbind(coef,se,pval))
 }
-
-signif(arima202) #
-
-#Function that apply "signif" function and tests if the residuals are correlated and 
+#Function that apply "signif" function and tests if the residuals are autocorrelated
 #Allow us to test if the model is valid and well adjusted. 
 
 arimafit <- function(estim){
@@ -149,8 +182,10 @@ arimafit <- function(estim){
   cat("\n Test of absence of residuals autocorrelation : \n")
   print(pvals)
 }
-# We apply this function on every simpler model that respect p < p_star = 5 and q < q_star = 2
 
+
+# First we want to apply this function on every simpler model that respect p ≤ 2 and q ≤ 2
+# to test if there exist some simpler model that are both valid and well adjusted.
 
 estim <- arima(y_wo_trend,c(1,0,0)); arimafit(estim) # Nope:The model is not valid
 
@@ -172,14 +207,17 @@ estim <- arima(y_wo_trend,c(2,0,1)); arimafit(estim) # Nope:The model is not pro
 estim <- arima(y_wo_trend,c(2,0,2)); arimafit(estim) # OK:The model is well adjusted and valid
 ar2ma2 <- estim
 
+# To choose between all the models that are well adjusted and valid we compute AIC and BIC of each model
+# We will probably select both models with minimum AIC and BIC.
 
 ### Compute the AIC BIC matrix of valid models #####
 models <- c("ar2","ma2",'ar1ma1',"ar2ma2"); names(models) <- models
 apply(as.matrix(models),1, function(m) c("AIC"=AIC(get(m)), "BIC"=BIC(get(m))))
 
-#
+#We can see that the model AR(2) has both minimum AIC and BIC, that's why we select it
+# Thus our final model for the first difference series is an ARIMA(2,0,0)
 
-#### Q7 ####
+
 
 ##
 models <-  c("ar2","ma2",'ar1ma1',"ar2ma2")
