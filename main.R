@@ -59,13 +59,13 @@ plot(y_diff)
 
 
 #Before performing the unit root tests to check stationarity, we need to check if there is an intercept and / or a non null linear trend.
-#The graph representation of spread showed that the trend is probably linear and decreasing.
+#The graph representation of spread showed that the trend is probably linear and increasing.
 
 # Let’s regress y on its dates to check :
 summary(lm( formula = y ~ dates))
 
 
-#The coefficient associated with the linear trend (dates) is indeed negative, thus we
+#The coefficient associated with the linear trend (dates) is indeed positive, thus we
 #need to study the case of unit root tests with intercept and possibly non zero trends
 
 adf <- adfTest(y_num, lag=0, type="ct") # ct here take into account the fact that y has an intercept and non zero trend.
@@ -78,7 +78,7 @@ Qtests(adf@test$lm$residuals,24,length(adf@test$lm$coefficients))
 #test without lags. Let’s add lags of ∆Xt until the residuals are no longer autocorrelated.
 
 adf <- adfTest_valid(y_num,24, type="ct") # ct here take into account the fact that y has an intercept and non zero trend.
-#We have had to consider 21 lags on the ADF test to erase residual autocorrelation.
+#We have had to consider 6 lags on the ADF test to erase residual autocorrelation.
 
 adf
 #The unit root is not rejected at the 95% - level for the series in levels, the series is thus at least I(1).
