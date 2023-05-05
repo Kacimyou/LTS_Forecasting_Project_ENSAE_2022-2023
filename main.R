@@ -2,7 +2,6 @@
 ###             Packages             ###
 ########################################
 
-
 require(forecast)
 require(zoo)
 require(tseries)
@@ -11,14 +10,14 @@ require(fUnitRoots)
 ########################################
 ### Import the data and set the path ###
 ########################################
-path <- "C:\\Users\\youns\\Documents\\GitHub\\LTS_Forecasting_Project_ENSAE_2022-2023"
+# path <- "C:\\Users\\youns\\Documents\\GitHub\\LTS_Forecasting_Project_ENSAE_2022-2023"
+path <- "C:\\Users\\mira_\\Documents\\GitHub\\LTS_Forecasting_Project_ENSAE_2022-2023"
 setwd(path) #definit l'espace de travail (working directory ou "wd")
 getwd() #affiche le wd
 list.files() #liste les elements du wd
 
 datafile <- "valeurs_mensuelles.csv" #definit le fichier de donnees
 data <- read.csv(datafile,sep=";") #importe un fichier .csv dans un objet de classe data.frame
-
 
 
 # Define time and interest variable #
@@ -39,10 +38,10 @@ y_diff = zoo(y_diff)
 ########################################
 ### Plot the data ###
 ########################################
-
  
 plot(y, ylim =c(60,160))
-#The series in level seems to have a decreasing linear trend. 
+
+#The series in level seems to have a increasing linear trend. 
 
 plot(y_diff)
 
@@ -147,7 +146,7 @@ pacf(y_diff)
 #Since the series is stationary, it is integrated of order d = 0.
 #The complete autocorrelation functions are statistically significant (i.e. bigger than the bounds ±1, 96/√n of
 #the confidence interval of a null test of the autocorrelation at the 95% level) until q∗ = 2 and the partial
-#autocorrelation until p∗ = 2. If y follows an ARIMA(p,d,q), it follows at most an ARIMA(p∗ =0, d∗ = 0,q∗ = 2), which we can estimate.
+#autocorrelation until p∗ = 2. If y follows an ARIMA(p,d,q), it follows at most an ARIMA(p∗ =2, d∗ = 0,q∗ = 2), which we can estimate.
 
 ### Model selection  ###
 
