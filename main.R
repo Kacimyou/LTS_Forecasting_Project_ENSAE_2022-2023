@@ -8,6 +8,11 @@ require(tseries)
 require(fUnitRoots) 
 
 ########################################
+###      Cleaning the workspace      ###
+########################################
+rm(list=(objects()))
+
+########################################
 ### Import the data and set the path ###
 ########################################
 # path <- "C:\\Users\\youns\\Documents\\GitHub\\LTS_Forecasting_Project_ENSAE_2022-2023"
@@ -30,8 +35,9 @@ tail(dates_char,1)
 dates <- as.yearmon(seq(from=2008+10/12, to=2023+3/12, by=1/12))
 y <-zoo(data[[2]][4:T], order.by=dates)
 y_num = as.numeric(y)
+y_num = zoo(y_num, order.by=dates)
 y_diff = diff(y_num, differences = 1)#first difference
-y_diff = zoo(y_diff)
+y_diff = zoo(y_diff, order.by=dates)
 
 #Q2)
  
@@ -40,10 +46,13 @@ y_diff = zoo(y_diff)
 ########################################
  
 plot(y, ylim =c(60,160))
+graphics.off()
 
 #The series in level seems to have a increasing linear trend. 
 
 plot(y_diff)
+graphics.off()
+
 
 #The first difference series seems relatively stable around a null constant and could be stationary. 
 
@@ -56,14 +65,39 @@ plot(y_diff)
 # Before modeling our series with ARMA model we need to check that it is stationary
 # If it is not, we need to correct it by differentiating it or deseasonalizing it.
 
+### Useful function ###
+adfTest_valid <-
+  function(series,kmax,type){ #ADF tests until no more autocorrelated residuals
+    k <- 0
+    noautocorr <- 0
+    while (noautocorr==0){
+      cat(paste0("ADF with ",k, " lags: residuals OK? "))
+      adf <- adfTest(series,lags=k,type=type)
+      pvals <- Qtests(adf@test$lm$residuals,24,fitdf=length(adf@test$lm$coefficients))[,2]
+      if (sum(pvals<0.05,na.rm=T) == 0) {
+        noautocorr <- 1; cat("OK \n")}
+      else cat("nope \n")
+      k <- k + 1
+    }
+    return(adf)
+  }
+
+Qtests <- function(series, k, fitdf=0) {
+  pvals <- apply(matrix(1:k), 1, FUN=function(l) {
+    pval <- if (l<=fitdf) NA else Box.test(series, lag=l, type="Ljung-Box", fitdf=fitdf)$p.value
+    return(c("lag"=l,"pval"=pval))
+  })
+  return(t(pvals))
+}
+
 
 #Before performing the unit root tests to check stationarity, we need to check if there is an intercept and / or a non null linear trend.
-#The graph representation of spread showed that the trend is probably linear and increasing.
+#The graph representation of the series showed that the trend is probably linear and increasing.
+
 
 # Let’s regress y on its dates to check :
 summary(lm( formula = y ~ dates))
-
-
+ 
 #The coefficient associated with the linear trend (dates) is indeed positive, thus we
 #need to study the case of unit root tests with intercept and possibly non zero trends
 
@@ -101,42 +135,20 @@ adf
 
 
 #Q3)
+#we plot the series before and after transforming it 
 
-plot(y_diff)
+plot(cbind(y_num,y_diff))
+graphics.off()
 
-### Useful function ###
-adfTest_valid <-
-  function(series,kmax,type){ #ADF tests until no more autocorrelated residuals
-    k <- 0
-    noautocorr <- 0
-    while (noautocorr==0){
-      cat(paste0("ADF with ",k, " lags: residuals OK? "))
-      adf <- adfTest(series,lags=k,type=type)
-      pvals <- Qtests(adf@test$lm$residuals,24,fitdf=length(adf@test$lm$coefficients))[,2]
-      if (sum(pvals<0.05,na.rm=T) == 0) {
-        noautocorr <- 1; cat("OK \n")}
-      else cat("nope \n")
-      k <- k + 1
-    }
-    return(adf)
-  }
 
-Qtests <- function(series, k, fitdf=0) {
-  pvals <- apply(matrix(1:k), 1, FUN=function(l) {
-    pval <- if (l<=fitdf) NA else Box.test(series, lag=l, type="Ljung-Box", fitdf=fitdf)$p.value
-    return(c("lag"=l,"pval"=pval))
-  })
-  return(t(pvals))
-}
-
-#Q4)
 
 
 ########################################
 ### ARMA modelization ###
 ########################################
-#Since our data is now stationary, we can try to model it with an ARMA(p,q) model.
 
+#Q4) 
+#Since our data is now stationary, we can try to model it with an ARMA(p,q) model.
 
 ### Identification of p and q ###
 par(mfrow=c(1,2)) #puts the graphs into 1 column and 2 lines
@@ -146,12 +158,12 @@ pacf(y_diff)
 #Since the series is stationary, it is integrated of order d = 0.
 #The complete autocorrelation functions are statistically significant (i.e. bigger than the bounds ±1, 96/√n of
 #the confidence interval of a null test of the autocorrelation at the 95% level) until q∗ = 2 and the partial
-#autocorrelation until p∗ = 2. If y follows an ARIMA(p,d,q), it follows at most an ARIMA(p∗ =2, d∗ = 0,q∗ = 2), which we can estimate.
+#autocorrelation until p∗ = 2. If the differienciated series follows an ARMA(p,q), it follows at most an ARMA(p∗ =2, q∗ = 2), which we can estimate.
 
 ### Model selection  ###
 
-# We know that our model is at most an ARIMA(2,0,2)
-#The potential models are all the ARIMA(p,0,q) for spread where p ≤ 2 and q ≤ 2.
+# We know that our model is at most an ARMA(2,2)
+#The potential models are all the ARMA(p,q) for spread where p ≤ 2 and q ≤ 2.
 #We are looking for a model that is :
 # — well adjusted : the estimated coefficients (notably the coefficients of the higher AR and MA orders) are
 # statistically significant.
@@ -186,24 +198,24 @@ arimafit <- function(estim){
 # First we want to apply this function on every simpler model that respect p ≤ 2 and q ≤ 2
 # to test if there exist some simpler model that are both valid and well adjusted.
 
-estim <- arima(y_wo_trend,c(1,0,0)); arimafit(estim) # Nope:The model is not valid
+estim <- Arima(y_diff,c(1,0,0)); arimafit(estim) # Nope:The model is not valid 
 
-estim <- arima(y_wo_trend,c(2,0,0)); arimafit(estim) # OK:The model is well adjusted and valid
+estim <- Arima(y_diff,c(2,0,0)); arimafit(estim) # OK:The model is well adjusted and valid
 ar2 <- estim
 
-estim <- arima(y_wo_trend,c(0,0,1)); arimafit(estim) # Nope:The model is not valid
+estim <- Arima(y_diff,c(0,0,1)); arimafit(estim) # Nope:The model is not valid
 
-estim <- arima(y_wo_trend,c(0,0,2)); arimafit(estim) # OK:The model is well adjusted and valid
+estim <- Arima(y_diff,c(0,0,2)); arimafit(estim) # OK:The model is well adjusted and valid
 ma2 <- estim
 
-estim <- arima(y_wo_trend,c(1,0,1)); arimafit(estim) # OK:The model is well adjusted and valid
+estim <- Arima(y_diff,c(1,0,1)); arimafit(estim) # OK:The model is well adjusted and valid
 ar1ma1 <- estim
 
-estim <- arima(y_wo_trend,c(1,0,2)); arimafit(estim) # Nope:The model is not properly adjusted
+estim <- Arima(y_diff,c(1,0,2)); arimafit(estim) # Nope:The model is not properly adjusted
 
-estim <- arima(y_wo_trend,c(2,0,1)); arimafit(estim) # Nope:The model is not properly adjusted
+estim <- Arima(y_diff,c(2,0,1)); arimafit(estim) # Nope:The model is not properly adjusted
 
-estim <- arima(y_wo_trend,c(2,0,2)); arimafit(estim) # OK:The model is well adjusted and valid
+estim <- Arima(y_diff,c(2,0,2)); arimafit(estim) # OK:The model is well adjusted and valid
 ar2ma2 <- estim
 
 # To choose between all the models that are well adjusted and valid we compute AIC and BIC of each model
@@ -217,15 +229,36 @@ apply(as.matrix(models),1, function(m) c("AIC"=AIC(get(m)), "BIC"=BIC(get(m))))
 # Thus our final model for the first difference series is an ARIMA(2,0,0)
 
 
+#Q5
+
+#plotting the corrected series and its modelisation
+plot(ar2$x, col = "red")
+lines(fitted(ar2), col = "blue")
+graphics.off() #cleaning the graph window
+
+
+#fitting the ARIMA(2, 1, 0) to the initial series
+estim <- Arima(y_num,c(2,1,0)); arimafit(estim) # OK:The model is well adjusted and valid
+ar2i1ma0 <- estim
+
+#plotting the initial series and its modelisation
+plot(ar2i1ma0$x, col = "red")
+lines(fitted(ar2i1ma0), col = "blue")
+graphics.off()
+
+#Q6
+
+
 
 #Q6)
-
+y.source <- y
 
 models <-  c("ar2","ma2",'ar1ma1',"ar2ma2")
 preds <- zoo(matrix(NA,ncol=4,nrow=4),order.by=tail(index(y.source),4))
 colnames(preds) <- models
 y_diff_pred <- preds #
 y_pred <- preds #
+
 
 
 
@@ -237,7 +270,8 @@ for (m in models){
 }
 
 obs <- tail(y.source,4) #
-cbind(obs,y_pred) #
+plot(cbind(obs,y_pred)) #
 apply(y_pred,2, function(x) sqrt(sum((x-obs)^2)/4)/sd(y.source)) #
 
 #
+
