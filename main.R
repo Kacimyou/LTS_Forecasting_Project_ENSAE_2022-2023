@@ -10,7 +10,7 @@ require(fUnitRoots)
 ########################################
 ###      Cleaning the workspace      ###
 ########################################
-rm(list=(objects()))
+rm(list=(objects())) 
 
 ########################################
 ### Import the data and set the path ###
@@ -154,6 +154,7 @@ graphics.off()
 par(mfrow=c(1,2)) #puts the graphs into 1 column and 2 lines
 acf(y_diff)
 pacf(y_diff)
+graphics.off()
 
 #Since the series is stationary, it is integrated of order d = 0.
 #The complete autocorrelation functions are statistically significant (i.e. bigger than the bounds ±1, 96/√n of
@@ -246,32 +247,8 @@ plot(ar2i1ma0$x, col = "red")
 lines(fitted(ar2i1ma0), col = "blue")
 graphics.off()
 
-#Q6
+#Q7
 
-
-
-#Q6)
-y.source <- y
-
-models <-  c("ar2","ma2",'ar1ma1',"ar2ma2")
-preds <- zoo(matrix(NA,ncol=4,nrow=4),order.by=tail(index(y.source),4))
-colnames(preds) <- models
-y_diff_pred <- preds #
-y_pred <- preds #
-
-
-
-
-for (m in models){
-  pred1 <- mean(y_diff) + zoo(predict(get(m),4)$pred, order.by=tail(index(y.source),4))
-  pred2 <- as.numeric(tail(y,12))[1:4] + pred1
-  y_diff_pred[,m] <- pred1
-  y_pred[,m] <- pred2
-}
-
-obs <- tail(y.source,4) #
-plot(cbind(obs,y_pred)) #
-apply(y_pred,2, function(x) sqrt(sum((x-obs)^2)/4)/sd(y.source)) #
-
-#
-
+obj <-forecast(ar2, h = 2, level = 95)
+autoplot(obj)
+?forecast(ar2)
