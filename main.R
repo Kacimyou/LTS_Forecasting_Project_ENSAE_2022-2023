@@ -80,7 +80,7 @@ adfTest_valid <-
       k <- k + 1
     }
     return(adf)
-  }
+}
 
 Qtests <- function(series, k, fitdf=0) {
   pvals <- apply(matrix(1:k), 1, FUN=function(l) {
@@ -249,6 +249,12 @@ graphics.off()
 
 #Q7
 
-obj <-forecast(ar2, h = 2, level = 95)
-autoplot(obj)
+obj <-forecast.Arima(ar2, h = 2, level = 95)
+autoplot(obj, 50)
 ?forecast(ar2)
+
+
+
+
+
+
