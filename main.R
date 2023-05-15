@@ -249,12 +249,6 @@ graphics.off()
 
 #Q7
 
-obj <-forecast.Arima(ar2, h = 2, level = 95)
+obj <-forecast(ar2, h = 2, level = 95)
 autoplot(obj, 50)
 ?forecast(ar2)
-
-
-
-
-
-
