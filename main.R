@@ -15,8 +15,8 @@ rm(list=(objects()))
 ########################################
 ### Import the data and set the path ###
 ########################################
-# path <- "C:\\Users\\youns\\Documents\\GitHub\\LTS_Forecasting_Project_ENSAE_2022-2023"
-path <- "C:\\Users\\mira_\\Documents\\GitHub\\LTS_Forecasting_Project_ENSAE_2022-2023"
+path <- "C:\\Users\\Home\\Documents\\GitHub\\LTS_Forecasting_Project_ENSAE_2022-2023"
+#path <- "C:\\Users\\mira_\\Documents\\GitHub\\LTS_Forecasting_Project_ENSAE_2022-2023"
 setwd(path) #definit l'espace de travail (working directory ou "wd")
 getwd() #affiche le wd
 list.files() #liste les elements du wd
@@ -247,8 +247,33 @@ plot(ar2i1ma0$x, col = "red")
 lines(fitted(ar2i1ma0), col = "blue")
 graphics.off()
 
-#Q7
+#Q8
+#obj <-forecast(ar2, h = 2, level = 95)
+#autoplot(obj, 50)
 
-obj <-forecast(ar2, h = 2, level = 95)
-autoplot(obj, 50)
-?forecast(ar2)
+qqnorm(ar2$residuals, pch = 1, frame = FALSE)
+qqline(ar2$residuals, col = "steelblue", lwd = 2)
+
+shapiro.test(ar2$residuals)
+#H0: The residuals are gaussian
+#p_value << 0.01 we reject H0
+
+#Given the QQ-plot and the Shapiro WIlk normality test 
+#we can reject the hypothesis of normality of residuals
+#So we keep in mind that the hypothesis of the test is not verified
+
+dates2 <-append(dates, c(as.yearmon(2023+1/12), as.yearmon(2023+2/12)))
+
+
+forecast_result <- ar2 %>% forecast(h = 2, level = c(95))
+forecast_result
+# Set the plot range and other parameters
+plot(forecast_result, xlim = c(max(time(ar2$x)) - 5, max(time(ar2$x))), 
+     ylim = c(-10, 10), main = "", ylab = "Production Index")
+
+# Create a sequence of dates for custom x-axis tick positions
+custom_dates <- seq.Date(max(time(ar2$x)) - 5, max(time(ar2$x)), by = "1 month")
+
+# Add custom x-axis tick positions and labels
+axis.Date(1, at = custom_dates, format = "%b %Y") 
+    
